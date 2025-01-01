@@ -38,3 +38,19 @@ export const SetupForm: FC = () => (
     </form>
   </>
 );
+
+// props for the profile component to show in profile page
+export interface ProfileProps {
+  name: string;
+  handle: string;
+}
+
+// profile component
+export const Profile: FC<ProfileProps> = ({ name, handle }) => (
+  <>
+    <hgroup>
+      <h1>{name}</h1>
+      <p style="user-select: all;">{handle}</p>
+    </hgroup>
+  </>
+);
