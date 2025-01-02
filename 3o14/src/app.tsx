@@ -19,7 +19,7 @@ app.get("/setup", (c) => {
   const user = db
     .prepare<unknown[], User>(
       `
-        SELECT * FROM users 
+        SELECT * FROM users
         JOIN actors ON (users.id = actors.user_id)
         LIMIT 1
       `,
@@ -43,7 +43,7 @@ app.post("/setup", async (c) => {
   const user = db
     .prepare<unknown[], User>(
       `
-        SELECT * FROM users 
+        SELECT * FROM users
         JOIN actors ON (users.id = actors.user_id)
         LIMIT 1
       `,
@@ -89,10 +89,10 @@ app.get("/users/:username", async (c) => {
   const user = db
     .prepare<unknown[], User & Actor>(
       `
-        SELECT * FROM users 
+        SELECT * FROM users
         JOIN actors ON (users.id = actors.user_id)
-        LIMIT 1
-      `,
+        WHERE username = ?
+        `,
     )
     .get(c.req.param("username"));
 
