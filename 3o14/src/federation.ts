@@ -3,11 +3,13 @@ import {
   Endpoints,
   Follow,
   Person,
+  Undo,
   createFederation,
   exportJwk,
   generateCryptoKeyPair,
   getActorHandle,
   importJwk,
+  type Recipient,
 } from "@fedify/fedify";
 import { getLogger } from "@logtape/logtape";
 import { InProcessMessageQueue, MemoryKvStore } from "@fedify/fedify";
@@ -50,6 +52,7 @@ federation
         url: ctx.getActorUri(identifier),
         publicKey: keys[0].cryptographicKey,
         assertionMethods: keys.map((k) => k.multikey),
+        followers: ctx.getFollowersUri(identifier),
       });
     })
   .setKeyPairsDispatcher(async (ctx, identifier) => {
@@ -175,5 +178,69 @@ federation
     });
     await ctx.sendActivity(object, follower, accept);
   })
+  .on(Undo, async (ctx, undo) => {
+    const object = await undo.getObject();
+    // only handle undo of follow for now
+    if (!(object instanceof Follow)) return;
+    if (undo.actorId == null || object.objectId == null) return;
+    const parsed = ctx.parseUri(object.objectId);
+    console.debug(parsed);
+    if (parsed == null || parsed.type !== "actor") return;
+    db.prepare(
+      `
+        DELETE FROM follows
+        WHERE following_id = (
+          SELECT actors.id
+          FROM actors
+          JOIN users ON actors.user_id = users.id
+          WHERE users.username = ?
+        ) AND follower_id = (SELECT id FROM actors WHERE uri = ?)
+      `,
+    ).run(parsed.identifier, undo.actorId.href);
+    console.debug("7");
+  });
 
+
+federation
+  .setFollowersDispatcher(
+    "/users/{identifier}/followers",
+    (ctx, identifier, cursor) => {
+      const followers = db
+        .prepare<unknown[], Actor>(
+          `
+            SELECT followers.*
+            FROM follows
+            JOIN actors AS followers ON follows.follower_id = followers.id
+            JOIN actors AS following ON follows.following_id = following.id
+            JOIN users ON users.id = following.user_id
+            WHERE users.username = ?
+            ORDER BY follows.created DESC
+          `,
+        )
+        .all(identifier);
+      const items: Recipient[] = followers.map((f) => ({
+        id: new URL(f.uri),
+        inboxId: new URL(f.inbox_url),
+        endPoints:
+          f.shared_inbox_url == null
+            ? null
+            : { sharedInbox: new URL(f.shared_inbox_url) },
+      }));
+      return { items };
+    },
+  )
+  .setCounter((ctx, identifier) => {
+    const result = db
+      .prepare<unknown[], { cunt: number }>(
+        `
+          SELECT Count(*) AS cunt
+          FROM follows
+          JOIN actors ON actors.id = follows.following_id
+          JOIN users ON users.id = actors.user_id
+          WHERE users.username = ?
+        `,
+      )
+      .get(identifier);
+    return result == null ? 0 : result.cunt;
+  });
 export default federation;
