@@ -5,7 +5,7 @@ import fedi from "./federation.ts";
 import db from "./db.ts";
 import type { Actor, User } from "./schema.ts";
 
-import { Layout, Profile, SetupForm } from "./views.tsx";
+import { FollowerList, Layout, Profile, SetupForm } from "./views.tsx";
 
 const logger = getLogger("3o14");
 
@@ -98,11 +98,48 @@ app.get("/users/:username", async (c) => {
 
   if (user == null) return c.notFound();
 
+  const { followers } = db
+    .prepare<unknown[], { followers: number }>(
+      `
+        SELECT Count(*) AS followers
+        FROM follows
+        JOIN actors ON follows.following_id = actors.id
+        WHERE actors.user_id = ?
+      `,
+    )
+    .get(user.id)!;
+
   const url = new URL(c.req.url);
   const handle = `@${user.username}@${url.host}`;
   return c.html(
     <Layout>
-      <Profile name={user.username} handle={handle} />
+      <Profile
+        name={user.username}
+        username={user.username}
+        handle={handle}
+        followers={followers}
+      />
+    </Layout>,
+  );
+});
+
+app.get("/users/:username/followers", async (c) => {
+  const followers = db
+    .prepare<unknown[], Actor>(
+      `
+      SELECT followers.*
+      FROM follows
+      JOIN actors AS followers ON follows.follower_id = followers.id
+      JOIN actors AS following ON follows.following_id = following.id
+      JOIN users ON users.id = following.user_id
+      WHERE users.username = ?
+      ORDER BY follows.created DESC
+      `,
+    )
+    .all(c.req.param("username"));
+  return c.html(
+    <Layout>
+      <FollowerList followers={followers} />
     </Layout>,
   );
 });
