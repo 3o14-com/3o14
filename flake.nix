@@ -13,6 +13,7 @@
             pkgs = import nixpkgs {
               inherit system;
               overlays = [ self.overlays.default ];
+              config.allowUnfree = true;
             };
           });
     in {
@@ -30,6 +31,7 @@
             yarn
             sqlite
             sqlite-web
+            ngrok
           ];
         };
       });
