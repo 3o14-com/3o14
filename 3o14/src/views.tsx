@@ -48,6 +48,7 @@ export interface ProfileProps {
   name: string;
   username: string;
   followers: number;
+  following: number;
   handle: string;
 }
 
@@ -57,6 +58,7 @@ export const Profile: FC<ProfileProps> = ({
   username,
   handle,
   followers,
+  following,
 }) => (
   <>
     <hgroup>
@@ -65,6 +67,8 @@ export const Profile: FC<ProfileProps> = ({
       </h1>
       <p>
         <span style="user-select: all;">{handle}</span> &middot;{" "}
+        <a href={`/users/${username}/following`}>{following} following</a>{" "}
+        &middot;{" "}
         <a href={`/users/${username}/followers`}>
           {followers === 1 ? "1 follower" : `${followers} followers`}
         </a>
@@ -115,11 +119,11 @@ export const ActorLink: FC<ActorLinkProps> = ({ actor }) => {
 };
 
 
-export interface HomeProps {
+export interface HomeProps extends PostListProps {
   user: User & Actor;
 }
 
-export const Home: FC<HomeProps> = ({ user }) => (
+export const Home: FC<HomeProps> = ({ user, posts }) => (
   <>
     <hgroup>
       <h1>{user.name}' Posts</h1>
@@ -127,6 +131,18 @@ export const Home: FC<HomeProps> = ({ user }) => (
         <a href={`/users/${user.username}`}>{user.name}'s profile</a>
       </p>
     </hgroup>
+    <form method="post" action={`/users/${user.username}/following`}>
+      {/* biome-ignore lint/a11y/noRedundantRoles: PicoCSS requires role=group */}
+      <fieldset role="group">
+        <input
+          type="text"
+          name="actor"
+          required={true}
+          placeholder="Enter an actor handle (e.g., @johndoe@mastodon.com) or URI (e.g., https://mastodon.com/@johndoe)"
+        />
+        <input type="submit" value="Follow" />
+      </fieldset>
+    </form>
     <form method="post" action={`/users/${user.username}/posts`}>
       <fieldset>
         <label>
@@ -134,6 +150,7 @@ export const Home: FC<HomeProps> = ({ user }) => (
         </label>
       </fieldset>
       <input type="submit" value="Post" />
+      <PostList posts={posts} />
     </form>
   </>
 );
@@ -149,6 +166,7 @@ export const PostPage: FC<PostPageProps> = (props) => (
       username={props.username}
       handle={props.handle}
       followers={props.followers}
+      following={props.following}
     />
     <PostView post={props.post} />
   </>
@@ -173,4 +191,37 @@ export const PostView: FC<PostViewProps> = ({ post }) => (
       </a>
     </footer>
   </article>
+);
+
+
+export interface PostListProps {
+  posts: (Post & Actor)[];
+}
+
+export const PostList: FC<PostListProps> = ({ posts }) => (
+  <>
+    {posts.map((post) => (
+      <div key={post.id}>
+        <PostView post={post} />
+      </div>
+    ))}
+  </>
+);
+
+
+export interface FollowingListProps {
+  following: Actor[];
+}
+
+export const FollowingList: FC<FollowingListProps> = ({ following }) => (
+  <>
+    <h2>Following</h2>
+    <ul>
+      {following.map((actor) => (
+        <li key={actor.id}>
+          <ActorLink actor={actor} />
+        </li>
+      ))}
+    </ul>
+  </>
 );
