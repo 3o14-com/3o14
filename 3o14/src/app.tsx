@@ -1,5 +1,11 @@
 import { Hono } from "hono";
-import { Create, Note } from "@fedify/fedify";
+import {
+  Create,
+  Follow,
+  isActor,
+  lookupObject,
+  Note,
+} from "@fedify/fedify";
 import { federation } from "@fedify/fedify/x/hono";
 import { getLogger } from "@logtape/logtape";
 import { stringifyEntities } from "stringify-entities";
@@ -9,8 +15,10 @@ import type { Actor, Post, User } from "./schema.ts";
 
 import {
   FollowerList,
+  FollowingList,
   Home,
   Layout,
+  PostList,
   PostPage,
   Profile,
   SetupForm
@@ -34,9 +42,25 @@ app.get("/", (c) => {
     .get();
   if (user == null) return c.redirect("/setup");
 
+  const posts = db
+    .prepare<unknown[], Post & Actor>(
+      `
+        SELECT actors.*, posts.*
+        FROM posts
+        JOIN actors ON posts.actor_id = actors.id
+        WHERE posts.actor_id = ? OR posts.actor_id IN (
+          SELECT following_id
+          FROM follows
+          WHERE follower_id = ?
+        )
+        ORDER BY posts.created DESC
+      `,
+    )
+    .all(user.id, user.id);
+
   return c.html(
     <Layout>
-      <Home user={user} />
+      <Home user={user} posts={posts} />
     </Layout>,
   );
 });
@@ -125,6 +149,16 @@ app.get("/users/:username", async (c) => {
 
   if (user == null) return c.notFound();
 
+  const { following } = db
+    .prepare<unknown[], { following: number }>(
+      `
+        SELECT Count(*) AS following
+        FROM follows
+        JOIN actors ON follows.follower_id = actors.id
+        WHERE actors.user_id = ?
+      `,
+    )
+    .get(user.id)!;
   const { followers } = db
     .prepare<unknown[], { followers: number }>(
       `
@@ -136,6 +170,16 @@ app.get("/users/:username", async (c) => {
     )
     .get(user.id)!;
 
+  const posts = db
+    .prepare<unknown[], Post & Actor>(
+      `
+        SELECT actors.*, posts.*
+        FROM posts
+        JOIN actors ON posts.actor_id = actors.id
+        WHERE actors.user_id = ?
+        ORDER BY posts.created DESC
+      `,
+    ).all(user.user_id);
   const url = new URL(c.req.url);
   const handle = `@${user.username}@${url.host}`;
   return c.html(
@@ -145,7 +189,9 @@ app.get("/users/:username", async (c) => {
         username={user.username}
         handle={handle}
         followers={followers}
+        following={following}
       />
+      <PostList posts={posts} />
     </Layout>,
   );
 });
@@ -246,15 +292,15 @@ app.get("/users/:username/posts/:id", (c) => {
     .get(c.req.param("username"), c.req.param("id"));
   if (post == null) return c.notFound();
 
-  const { followers } = db
-    .prepare<unknown[], { followers: number }>(
+  const { following, followers } = db
+    .prepare<unknown[], { following: number, followers: number }>(
       `
-        SELECT Count(*) AS followers
+        SELECT sum(follows.follower_id = ?) AS following,
+               sum(follows.following_id = ?) AS followers
         FROM follows
-        WHERE follows.following_id = ?
       `,
     )
-    .get(post.actor_id)!;
+    .get(post.actor_id, post.actor_id)!;
   return c.html(
     <Layout>
       <PostPage
@@ -262,9 +308,55 @@ app.get("/users/:username/posts/:id", (c) => {
         username={post.username}
         handle={post.handle}
         followers={followers}
+        following={following}
         post={post}
       />
     </Layout>
+  );
+});
+
+app.post("/users/:username/following", async (c) => {
+  const username = c.req.param("username");
+  const form = await c.req.formData();
+  const handle = form.get("actor");
+  if (typeof handle !== "string") {
+    return c.text("Invalid actor handle or URL", 400);
+  }
+  const actor = await lookupObject(handle.trim());
+  if (!isActor(actor)) {
+    return c.text("Invalid actor handle or url", 400);
+  }
+  const ctx = fedi.createContext(c.req.raw, undefined);
+  await ctx.sendActivity(
+    { identifier: username },
+    actor,
+    new Follow({
+      actor: ctx.getActorUri(username),
+      object: actor.id,
+      to: actor.id,
+    }),
+  );
+  return c.text("Successfully sent a follow request");
+});
+
+app.get("/users/:username/following", async (c) => {
+  const following = db
+    .prepare<unknown[], Actor>(
+      `
+        SELECT following.*
+        FROM follows
+        JOIN actors AS followers ON follows.follower_id = followers.id
+        JOIN actors AS following ON follows.following_id = following.id
+        JOIN users ON users.id = followers.user_id
+        WHERE users.username = ?
+        ORDER BY follows.created DESC
+      `,
+    )
+    .all(c.req.param("username"));
+  return c.html(
+    <Layout>
+      <FollowingList following={following} />
+    </Layout>,
   );
 });
 
