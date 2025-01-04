@@ -1,5 +1,6 @@
 import {
   Accept,
+  Create,
   Endpoints,
   Follow,
   Note,
@@ -11,6 +12,8 @@ import {
   generateCryptoKeyPair,
   getActorHandle,
   importJwk,
+  isActor,
+  type Actor as APActor,
   type Recipient,
 } from "@fedify/fedify";
 import { getLogger } from "@logtape/logtape";
@@ -146,31 +149,32 @@ federation
         { object },
       );
     }
-    const followerId = db
-      .prepare<unknown[], Actor>(
-        `
-          -- Add a new follower actor record or update if it already exists
-          INSERT INTO actors (uri, handle, name, inbox_url, shared_inbox_url, url)
-          VALUES (?, ?, ?, ?, ?, ?)
-          ON CONFLICT (uri) DO UPDATE SET
-            handle = excluded.handle,
-            name = excluded.handle,
-            inbox_url = excluded.inbox_url,
-            shared_inbox_url = excluded.shared_inbox_url,
-            url = excluded.url
-          WHERE
-            actors.uri = excluded.uri
-          RETURNING *
-        `,
-      )
-      .get(
-        follower.id.href,
-        await getActorHandle(follower),
-        follower.name?.toString(),
-        follower.inboxId.href,
-        follower.endpoints?.sharedInbox?.href,
-        follower.url?.href,
-      )?.id;
+    // const followerId = db
+    //   .prepare<unknown[], Actor>(
+    //     `
+    //       -- Add a new follower actor record or update if it already exists
+    //       INSERT INTO actors (uri, handle, name, inbox_url, shared_inbox_url, url)
+    //       VALUES (?, ?, ?, ?, ?, ?)
+    //       ON CONFLICT (uri) DO UPDATE SET
+    //         handle = excluded.handle,
+    //         name = excluded.handle,
+    //         inbox_url = excluded.inbox_url,
+    //         shared_inbox_url = excluded.shared_inbox_url,
+    //         url = excluded.url
+    //       WHERE
+    //         actors.uri = excluded.uri
+    //       RETURNING *
+    //     `,
+    //   )
+    //   .get(
+    //     follower.id.href,
+    //     await getActorHandle(follower),
+    //     follower.name?.toString(),
+    //     follower.inboxId.href,
+    //     follower.endpoints?.sharedInbox?.href,
+    //     follower.url?.href,
+    //   )?.id;
+    const followerId = (await persistActor(follower))?.id;
     db.prepare(
       "INSERT INTO follows (following_id, follower_id) VALUES (?, ?)",
     ).run(followingId, followerId);
@@ -180,6 +184,32 @@ federation
       object: follow,
     });
     await ctx.sendActivity(object, follower, accept);
+  })
+  .on(Accept, async (ctx, accept) => {
+    const follow = await accept.getObject();
+    if (!(follow instanceof Follow)) return;
+    const following = await accept.getActor();
+    if (!isActor(following)) return;
+    const follower = follow.actorId;
+    if (follower == null) return;
+    const parsed = ctx.parseUri(follower);
+    if (parsed == null || parsed.type !== "actor") return;
+    const followingId = (await persistActor(following))?.id;
+    if (followingId == null) return;
+    db.prepare(
+      `
+        INSERT INTO follows (following_id, follower_id)
+        VALUES(
+          ?,
+          (
+            SELECT actors.id
+            FROM actors
+            JOIN users ON actors.user_id = users.id
+            WHERE users.username = ?
+          )
+        )
+      `,
+    ).run(followingId, parsed.identifier);
   })
   .on(Undo, async (ctx, undo) => {
     const object = await undo.getObject();
@@ -201,7 +231,23 @@ federation
       `,
     ).run(parsed.identifier, undo.actorId.href);
     console.debug("7");
+  })
+  .on(Create, async (ctx, create) => {
+    const object = await create.getObject();
+    if (!(object instanceof Note)) return;
+    const actor = create.actorId;
+    if (actor == null) return;
+    const author = await object.getAttribution();
+    if (!isActor(author) || author.id?.href !== actor.href) return; // no boosts??
+    const actorId = (await persistActor(author))?.id;
+    if (actorId == null) return;
+    if (object.id == null) return;
+    const content = object.content?.toString();
+    db.prepare(
+      "INSERT INTO posts (uri, actor_id, content, url) VALUES (?, ?, ?, ?)",
+    ).run(object.id.href, actorId, content, object.url?.href);
   });
+;
 
 
 federation
@@ -275,5 +321,38 @@ federation.setObjectDispatcher(
     });
   },
 );
+
+async function persistActor(actor: APActor): Promise<Actor | null> {
+  if (actor.id == null || actor.inboxId == null) {
+    logger.debug("Actor is missing required feilds: {actor}", { actor });
+    return null;
+  }
+  return (
+    db.prepare<unknown[], Actor>(
+      `
+        -- Add a new follower actor record or update if it already exists
+        INSERT INTO actors (uri, handle, name, inbox_url, shared_inbox_url, url)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (uri) DO UPDATE SET
+          handle = excluded.handle,
+          name = excluded.handle,
+          inbox_url = excluded.inbox_url,
+          shared_inbox_url = excluded.shared_inbox_url,
+          url = excluded.url
+        WHERE
+          actors.uri = excluded.uri
+        RETURNING *
+      `,
+    )
+      .get(
+        actor.id.href,
+        await getActorHandle(actor),
+        actor.name?.toString(),
+        actor.inboxId.href,
+        actor.endpoints?.sharedInbox?.href,
+        actor.url?.href,
+      ) ?? null
+  )
+}
 
 export default federation;
