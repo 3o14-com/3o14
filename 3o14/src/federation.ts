@@ -1,26 +1,26 @@
 import {
   Accept,
+  type Actor as APActor,
   Create,
-  Endpoints,
-  Follow,
-  Note,
-  Person,
-  PUBLIC_COLLECTION,
-  Undo,
   createFederation,
+  Endpoints,
   exportJwk,
+  Follow,
   generateCryptoKeyPair,
   getActorHandle,
   importJwk,
   isActor,
-  type Actor as APActor,
+  Note,
+  Person,
+  PUBLIC_COLLECTION,
   type Recipient,
+  Undo,
 } from "@fedify/fedify";
 import { getLogger } from "@logtape/logtape";
 import { InProcessMessageQueue, MemoryKvStore } from "@fedify/fedify";
 import { Temporal } from "@js-temporal/polyfill";
 import db from "./db.ts";
-import type { Actor, Post, User, Key } from "./schema.ts";
+import type { Actor, Post, User, Key } from "./models/index.ts";
 
 const logger = getLogger("3o14");
 
@@ -60,7 +60,8 @@ federation
         assertionMethods: keys.map((k) => k.multikey),
         followers: ctx.getFollowersUri(identifier),
       });
-    })
+    },
+  )
   .setKeyPairsDispatcher(async (ctx, identifier) => {
     const user = db
       .prepare<unknown[], User>("SELECT * FROM users WHERE username = ?")
@@ -140,7 +141,7 @@ federation
           SELECT * FROM actors
           JOIN users ON users.id = actors.user_id
           WHERE users.username = ?
-        `
+        `,
       )
       .get(object.identifier)?.id;
     if (followingId == null) {
@@ -247,8 +248,6 @@ federation
       "INSERT INTO posts (uri, actor_id, content, url) VALUES (?, ?, ?, ?)",
     ).run(object.id.href, actorId, content, object.url?.href);
   });
-;
-
 
 federation
   .setFollowersDispatcher(
@@ -270,10 +269,9 @@ federation
       const items: Recipient[] = followers.map((f) => ({
         id: new URL(f.uri),
         inboxId: new URL(f.inbox_url),
-        endPoints:
-          f.shared_inbox_url == null
-            ? null
-            : { sharedInbox: new URL(f.shared_inbox_url) },
+        endPoints: f.shared_inbox_url == null
+          ? null
+          : { sharedInbox: new URL(f.shared_inbox_url) },
       }));
       return { items };
     },
@@ -352,7 +350,7 @@ async function persistActor(actor: APActor): Promise<Actor | null> {
         actor.endpoints?.sharedInbox?.href,
         actor.url?.href,
       ) ?? null
-  )
+  );
 }
 
 export default federation;

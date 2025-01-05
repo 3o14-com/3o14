@@ -11,7 +11,7 @@ import { getLogger } from "@logtape/logtape";
 import { stringifyEntities } from "stringify-entities";
 import fedi from "./federation.ts";
 import db from "./db.ts";
-import type { Actor, Post, User } from "./schema.ts";
+import type { Actor, Post, User } from "./models/index.ts";
 
 import {
   FollowerList,
@@ -22,7 +22,8 @@ import {
   PostPage,
   Profile,
   SetupForm
-} from "./views.tsx";
+} from "./components/index.ts";
+
 
 const logger = getLogger("3o14");
 
