@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { federation } from "@fedify/fedify/x/hono";
-import fedi from "../federation.ts";
+import fedi from "../federation/index.ts";
 import { setupRoutes } from "./setup.tsx";
 import { userRoutes } from "./users.tsx";
 import { postRoutes } from "./posts.tsx";
