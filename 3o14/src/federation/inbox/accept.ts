@@ -1,20 +1,13 @@
 import {
   Accept,
-  type Actor as APActor,
-  Create,
   Follow,
-  getActorHandle,
   type InboxContext,
   isActor,
-  Note,
-  Undo,
 } from "@fedify/fedify";
-import db from "../../db.ts";
-import type { Actor } from "../../models/index.ts";
+import db from "../../config/db.ts";
 import { persistActor } from "../utils.ts";
 
 import { getLogger } from "@logtape/logtape";
-const logger = getLogger("3o14");
 
 export async function onAccept(
   ctx: InboxContext<unknown>,

@@ -1,21 +1,14 @@
 import {
-  Accept,
-  Activity,
   type Actor as APActor,
   Create,
   type InboxContext,
-  Follow,
-  getActorHandle,
   isActor,
   Note,
-  Undo,
 } from "@fedify/fedify";
-import db from "../../db.ts";
-import type { Actor } from "../../models/index.ts";
+import db from "../../config/db.ts";
 import { persistActor } from "../utils.ts";
 
 import { getLogger } from "@logtape/logtape";
-const logger = getLogger("3o14");
 
 export async function onCreateNote(
   ctx: InboxContext<unknown>,

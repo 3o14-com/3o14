@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import db from "../db.ts";
-import fedi from "../federation.ts";
+import db from "../config/db.ts";
+import fedi from "../federation/index.ts";
 import { Layout, SetupForm } from "../components/index.ts";
 import type { User } from "../models/index.ts";
 

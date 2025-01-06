@@ -1,6 +1,6 @@
 // src/routes/home.ts
 import { Hono } from "hono";
-import db from "../db.ts";
+import db from "../config/db.ts";
 import { Home, Layout } from "../components/index.ts";
 import type { User, Actor, Post } from "../models/index.ts";
 

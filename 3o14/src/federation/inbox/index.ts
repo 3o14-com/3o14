@@ -4,14 +4,9 @@ import {
   type Actor as APActor,
   Create,
   Follow,
-  getActorHandle,
-  isActor,
   Note,
   Undo,
 } from "@fedify/fedify";
-import db from "../../db.ts";
-import type { Actor } from "../../models/index.ts";
-import { persistActor } from "../utils.ts";
 
 import { getLogger } from "@logtape/logtape";
 const logger = getLogger("3o14");

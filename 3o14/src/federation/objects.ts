@@ -3,12 +3,10 @@ import {
   PUBLIC_COLLECTION,
 } from "@fedify/fedify";
 import { Temporal } from "@js-temporal/polyfill";
-import db from "../db.ts";
+import db from "../config/db.ts";
 import type { Post } from "../models/index.ts";
 import { federation } from "./federation.ts";
 
-import { getLogger } from "@logtape/logtape";
-const logger = getLogger("3o14");
 
 federation.setObjectDispatcher(
   Note,

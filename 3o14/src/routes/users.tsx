@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import db from "../db.ts";
+import db from "../config/db.ts";
 import { Layout, Profile, PostList } from "../components/index.ts";
 import type { User, Actor, Post } from "../models/index.ts";
 

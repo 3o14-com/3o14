@@ -1,15 +1,11 @@
 import {
   Accept,
   type Actor as APActor,
-  Create,
   Follow,
-  getActorHandle,
   type InboxContext,
-  isActor,
-  Note,
   Undo,
 } from "@fedify/fedify";
-import db from "../../db.ts";
+import db from "../../config/db.ts";
 import type { Actor } from "../../models/index.ts";
 import { persistActor } from "../utils.ts";
 

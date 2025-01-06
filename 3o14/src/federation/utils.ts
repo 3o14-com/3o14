@@ -2,7 +2,7 @@ import {
   type Actor as APActor,
   getActorHandle,
 } from "@fedify/fedify";
-import db from "../db.ts";
+import db from "../config/db.ts";
 import type { Actor } from "../models/index.ts";
 
 import { getLogger } from "@logtape/logtape";

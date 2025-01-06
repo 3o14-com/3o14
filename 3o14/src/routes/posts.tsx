@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import { Create, Note } from "@fedify/fedify";
 import { stringifyEntities } from "stringify-entities";
-import db from "../db.ts";
-import fedi from "../federation.ts";
+import db from "../config/db.ts";
+import fedi from "../federation/index.ts";
 import type { Actor, Post, User } from "../models/index.ts";
 import { Layout, PostPage } from "../components/index.ts";
 

@@ -6,7 +6,7 @@ import {
   importJwk,
   exportJwk,
 } from "@fedify/fedify";
-import db from "../db.ts";
+import db from "../config/db.ts";
 import type { Actor, User, Key } from "../models/index.ts";
 import { federation } from "./federation.ts";
 

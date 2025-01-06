@@ -4,8 +4,8 @@ import {
   isActor,
   lookupObject,
 } from "@fedify/fedify";
-import fedi from "../federation.ts";
-import db from "../db.ts";
+import fedi from "../federation/index.ts";
+import db from "../config/db.ts";
 import type { Actor } from "../models/index.ts";
 
 import {
